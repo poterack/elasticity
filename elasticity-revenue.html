@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Elasticity &amp; Total Revenue</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: Georgia, 'Times New Roman', serif;
+  background: #f5f5f5;
+  display: flex;
+  justify-content: center;
+  padding: 28px 16px 40px;
+  min-height: 100vh;
+}
+#app {
+  width: 680px;
+  max-width: 100%;
+}
+h1 {
+  font-size: 1.35rem;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+  font-weight: normal;
+}
+.subtitle {
+  font-size: 0.88rem;
+  color: #666;
+  margin-bottom: 22px;
+  font-style: italic;
+}
+.card {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  margin-bottom: 14px;
+}
+#chart-wrap { padding: 12px 12px 6px; }
+svg { display: block; width: 100%; }
+
+/* Controls */
+.controls { padding: 14px 20px 16px; }
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+.slider-row:last-child { margin-bottom: 0; }
+.slider-row label {
+  font-size: 0.88rem;
+  color: #444;
+  white-space: nowrap;
+  min-width: 88px;
+}
+.slider-row input[type=range] {
+  flex: 1;
+  cursor: pointer;
+}
+#base-slider  { accent-color: #5c6bc0; }
+#price-slider { accent-color: #388e3c; }
+.price-tag {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #222;
+  min-width: 52px;
+  text-align: right;
+}
+.price-tag.base-tag { color: #3949ab; }
+.divider {
+  border: none;
+  border-top: 1px solid #eee;
+  margin: 10px 0;
+}
+.reset-btn {
+  background: none;
+  border: 1px solid #aaa;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 0.8rem;
+  color: #555;
+  cursor: pointer;
+  font-family: Georgia, serif;
+}
+.reset-btn:hover { background: #f0f0f0; }
+
+/* Stats */
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.stat {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 12px 14px;
+  text-align: center;
+}
+.stat-label {
+  font-size: 0.73rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 5px;
+}
+.stat-value {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #333;
+}
+.stat-value.gain { color: #2e7d32; }
+.stat-value.loss { color: #c62828; }
+
+/* Elasticity panel */
+.elas-panel { padding: 14px 20px 16px; }
+.elas-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+.elas-title { font-size: 0.88rem; color: #555; }
+.elas-number { font-size: 1.1rem; font-weight: bold; color: #222; }
+
+/* Meter bar */
+.meter {
+  position: relative;
+  height: 24px;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 5px;
+}
+.meter-inelastic {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 50%;
+  background: #ffb74d;
+}
+.meter-elastic {
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 50%;
+  background: #81c784;
+}
+.meter-divider {
+  position: absolute;
+  left: 50%;
+  top: 0; bottom: 0;
+  width: 2px;
+  background: #555;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+.meter-dot {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  background: #111;
+  border: 2px solid white;
+  border-radius: 50%;
+  z-index: 3;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  transition: left 0.08s;
+}
+.meter-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.74rem;
+  color: #777;
+  margin-bottom: 8px;
+}
+.elas-interp {
+  font-size: 0.87rem;
+  color: #444;
+  text-align: center;
+  min-height: 1.2em;
+  font-style: italic;
+}
+
+/* Legend */
+.legend {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 8px 0 4px;
+}
+.leg-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: #555;
+}
+.leg-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  border: 1px solid #aaa;
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>Elasticity &amp; Total Revenue</h1>
+  <p class="subtitle">Move the price slider to see how total revenue responds — and whether demand is elastic or inelastic.</p>
+
+  <div class="card" id="chart-wrap">
+    <svg id="chart" viewBox="0 0 620 380"></svg>
+    <div class="legend">
+      <div class="leg-item"><div class="leg-swatch" style="background:rgba(76,175,80,0.28)"></div> Original TR</div>
+      <div class="leg-item"><div class="leg-swatch" style="background:rgba(56,142,60,0.8)"></div> Revenue gained</div>
+      <div class="leg-item"><div class="leg-swatch" style="background:rgba(198,40,40,0.75)"></div> Revenue lost</div>
+    </div>
+  </div>
+
+  <div class="card controls">
+    <div class="slider-row">
+      <label>Base price</label>
+      <input type="range" id="base-slider" min="1" max="49" step="0.5" value="25">
+      <span class="price-tag base-tag" id="base-tag">$25</span>
+    </div>
+    <hr class="divider">
+    <div class="slider-row">
+      <label>New price</label>
+      <input type="range" id="price-slider" min="1" max="49" step="0.5" value="25">
+      <span class="price-tag" id="price-tag">$25</span>
+      <button class="reset-btn" id="reset-btn">↺</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label" id="orig-label">Original TR (P = $25)</div>
+      <div class="stat-value" id="stat-orig">$1,250</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">New TR</div>
+      <div class="stat-value" id="stat-new">$1,250</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Change in TR</div>
+      <div class="stat-value" id="stat-delta">—</div>
+    </div>
+  </div>
+
+  <div class="card elas-panel">
+    <div class="elas-top">
+      <span class="elas-title">Price elasticity of demand at current price</span>
+      <span class="elas-number" id="elas-num">|ε| = 1.00</span>
+    </div>
+    <div class="meter">
+      <div class="meter-inelastic"></div>
+      <div class="meter-elastic"></div>
+      <div class="meter-divider"></div>
+      <div class="meter-dot" id="meter-dot" style="left:50%"></div>
+    </div>
+    <div class="meter-labels">
+      <span>Inelastic &nbsp;|ε| &lt; 1</span>
+      <span>|ε| = 1</span>
+      <span>|ε| &gt; 1&nbsp; Elastic</span>
+    </div>
+    <div class="elas-interp" id="elas-interp">Unit elastic — TR is at its peak; price changes have no net effect on TR.</div>
+  </div>
+</div>
+
+<script>
+// ── Demand: Q = 100 − 2P  →  P = 50 − Q/2
+const demandQ  = P => Math.max(0, 100 - 2 * P);
+const demandTR = P => P * demandQ(P);
+const demandE  = P => { const q = demandQ(P); return q > 0 ? Math.abs(-2 * P / q) : Infinity; };
+
+let P0 = 25;   // mutable base price
+
+// ── SVG coordinate system
+const W = 620, H = 380;
+const ML = 64, MT = 18, MR = 24, MB = 52;
+const PW = W - ML - MR;
+const PH = H - MT - MB;
+const QMAX = 102, PMAX = 51;
+
+function sx(q) { return ML + (q / QMAX) * PW; }
+function sy(p) { return MT + PH - (p / PMAX) * PH; }
+
+// ── Build SVG
+const NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('chart');
+
+function mk(tag, attrs) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  svg.appendChild(e);
+  return e;
+}
+
+// Layer order (back to front):
+// 1. faded original rect
+// 2. loss rect  3. gain rect  4. new-TR dashed outline
+// 5. P0 reference line on chart
+// 6. axes, curve, labels
+
+// 1. Faded original
+const rOrig = mk('rect', {
+  x: sx(0), y: sy(P0),
+  width: sx(demandQ(P0)) - sx(0),
+  height: sy(0) - sy(P0),
+  fill: '#4CAF50', 'fill-opacity': 0.28, stroke: 'none'
+});
+
+// 2–3. Loss / Gain rects
+const rLoss = mk('rect', { x:0, y:0, width:0, height:0, fill:'#c62828', 'fill-opacity':0.75 });
+const rGain = mk('rect', { x:0, y:0, width:0, height:0, fill:'#388e3c', 'fill-opacity':0.80 });
+
+// 4. New-TR dashed outline
+const rNew = mk('rect', {
+  x:0, y:0, width:0, height:0,
+  fill:'none', stroke:'#1b5e20', 'stroke-width':2, 'stroke-dasharray':'6 3'
+});
+
+// 5. P0 reference line (indigo, shown when P1 ≠ P0)
+const p0RefH = mk('line', { x1:sx(0), y1:sy(P0), x2:sx(demandQ(P0)), y2:sy(P0),
+  stroke:'#3949ab', 'stroke-width':1.5, 'stroke-dasharray':'5 3', opacity:0 });
+const p0RefV = mk('line', { x1:sx(demandQ(P0)), y1:sy(0), x2:sx(demandQ(P0)), y2:sy(P0),
+  stroke:'#3949ab', 'stroke-width':1.5, 'stroke-dasharray':'5 3', opacity:0 });
+const p0Dot  = mk('circle', { cx:sx(demandQ(P0)), cy:sy(P0), r:4, fill:'white',
+  stroke:'#3949ab', 'stroke-width':2, opacity:0 });
+const p0YLbl = mk('text', { x:sx(0)-8, y:sy(P0)+4, 'text-anchor':'end',
+  'font-size':11, 'font-family':'Georgia,serif', fill:'#3949ab', opacity:0 });
+
+// 6. Axes
+mk('line', { x1:sx(0), y1:sy(0), x2:sx(QMAX), y2:sy(0), stroke:'#333', 'stroke-width':1.5 });
+mk('line', { x1:sx(0), y1:sy(0), x2:sx(0), y2:sy(PMAX), stroke:'#333', 'stroke-width':1.5 });
+
+const xLbl = mk('text', { x:sx(QMAX/2), y:H-10, 'text-anchor':'middle',
+  'font-size':14, 'font-family':'Georgia,serif', fill:'#333' });
+xLbl.textContent = 'Quantity';
+const yLbl = mk('text', { x:14, y:sy(PMAX/2), 'text-anchor':'middle',
+  'font-size':14, 'font-family':'Georgia,serif', fill:'#333',
+  transform:`rotate(-90 14 ${sy(PMAX/2)})` });
+yLbl.textContent = 'Price ($)';
+
+for (let q = 0; q <= 100; q += 20) {
+  mk('line', { x1:sx(q), y1:sy(0), x2:sx(q), y2:sy(0)+5, stroke:'#666', 'stroke-width':1 });
+  const t = mk('text', { x:sx(q), y:sy(0)+18, 'text-anchor':'middle',
+    'font-size':11, 'font-family':'Georgia,serif', fill:'#555' });
+  t.textContent = q;
+}
+for (let p = 0; p <= 50; p += 10) {
+  mk('line', { x1:sx(0)-4, y1:sy(p), x2:sx(0), y2:sy(p), stroke:'#666', 'stroke-width':1 });
+  const t = mk('text', { x:sx(0)-8, y:sy(p)+4, 'text-anchor':'end',
+    'font-size':11, 'font-family':'Georgia,serif', fill:'#555' });
+  t.textContent = '$' + p;
+}
+
+mk('line', { x1:sx(0), y1:sy(50), x2:sx(100), y2:sy(0), stroke:'#1565c0', 'stroke-width':2.5 });
+const dLbl = mk('text', { x:sx(7), y:sy(49.5), 'text-anchor':'start',
+  'font-size':15, 'font-family':'Georgia,serif', fill:'#1565c0', 'font-style':'italic' });
+dLbl.textContent = 'D';
+
+// Current-price reference lines (green)
+const hLine = mk('line', { x1:sx(0), y1:sy(P0), x2:sx(demandQ(P0)), y2:sy(P0),
+  stroke:'#555', 'stroke-width':1, 'stroke-dasharray':'4 3' });
+const vLine = mk('line', { x1:sx(demandQ(P0)), y1:sy(0), x2:sx(demandQ(P0)), y2:sy(P0),
+  stroke:'#555', 'stroke-width':1, 'stroke-dasharray':'4 3' });
+
+const pLbl = mk('text', { x:sx(0)-8, y:sy(P0)+4, 'text-anchor':'end',
+  'font-size':12, 'font-family':'Georgia,serif', fill:'#1b5e20', 'font-weight':'bold' });
+const qLbl = mk('text', { x:sx(demandQ(P0)), y:sy(0)+30, 'text-anchor':'middle',
+  'font-size':12, 'font-family':'Georgia,serif', fill:'#1b5e20', 'font-weight':'bold' });
+
+const dot = mk('circle', { cx:sx(demandQ(P0)), cy:sy(P0), r:4.5, fill:'#1565c0' });
+
+// ── Helpers to reposition the P0 SVG markers
+function positionP0Markers() {
+  const Q0 = demandQ(P0);
+  rOrig.setAttribute('x', sx(0));
+  rOrig.setAttribute('y', sy(P0));
+  rOrig.setAttribute('width', sx(Q0) - sx(0));
+  rOrig.setAttribute('height', sy(0) - sy(P0));
+
+  p0RefH.setAttribute('y1', sy(P0)); p0RefH.setAttribute('y2', sy(P0));
+  p0RefH.setAttribute('x2', sx(Q0));
+  p0RefV.setAttribute('x1', sx(Q0)); p0RefV.setAttribute('x2', sx(Q0));
+  p0RefV.setAttribute('y2', sy(P0));
+  p0Dot.setAttribute('cx', sx(Q0)); p0Dot.setAttribute('cy', sy(P0));
+  p0YLbl.setAttribute('y', sy(P0) + 4);
+  p0YLbl.textContent = '$' + P0.toFixed(1);
+}
+
+// ── Main update (called when new-price slider moves)
+function update(P1) {
+  const Q0 = demandQ(P0);
+  const Q1 = demandQ(P1);
+  const TR0 = demandTR(P0);
+  const TR1 = demandTR(P1);
+  const eps = demandE(P1);
+  const delta = TR1 - TR0;
+  const atStart = Math.abs(P1 - P0) < 0.01;
+
+  rOrig.setAttribute('fill-opacity', atStart ? 0 : 0.28);
+
+  // Show/hide P0 reference markers
+  const p0Vis = atStart ? 0 : 1;
+  p0RefH.setAttribute('opacity', p0Vis);
+  p0RefV.setAttribute('opacity', p0Vis);
+  p0Dot.setAttribute('opacity', p0Vis);
+  p0YLbl.setAttribute('opacity', p0Vis);
+
+  if (atStart) {
+    rGain.setAttribute('x', sx(0));
+    rGain.setAttribute('y', sy(P0));
+    rGain.setAttribute('width', sx(Q0) - sx(0));
+    rGain.setAttribute('height', sy(0) - sy(P0));
+    rGain.setAttribute('fill-opacity', 0.65);
+    rLoss.setAttribute('width', 0);
+    rNew.setAttribute('width', 0);
+  } else {
+    rGain.setAttribute('fill-opacity', 0.80);
+    if (P1 > P0) {
+      rGain.setAttribute('x', sx(0));
+      rGain.setAttribute('y', sy(P1));
+      rGain.setAttribute('width', sx(Q1) - sx(0));
+      rGain.setAttribute('height', sy(P0) - sy(P1));
+      rLoss.setAttribute('x', sx(Q1));
+      rLoss.setAttribute('y', sy(P0));
+      rLoss.setAttribute('width', sx(Q0) - sx(Q1));
+      rLoss.setAttribute('height', sy(0) - sy(P0));
+    } else {
+      rLoss.setAttribute('x', sx(0));
+      rLoss.setAttribute('y', sy(P0));
+      rLoss.setAttribute('width', sx(Q0) - sx(0));
+      rLoss.setAttribute('height', sy(P1) - sy(P0));
+      rGain.setAttribute('x', sx(Q0));
+      rGain.setAttribute('y', sy(P1));
+      rGain.setAttribute('width', sx(Q1) - sx(Q0));
+      rGain.setAttribute('height', sy(0) - sy(P1));
+    }
+    rNew.setAttribute('x', sx(0));
+    rNew.setAttribute('y', sy(P1));
+    rNew.setAttribute('width', sx(Q1) - sx(0));
+    rNew.setAttribute('height', sy(0) - sy(P1));
+  }
+
+  hLine.setAttribute('y1', sy(P1)); hLine.setAttribute('y2', sy(P1));
+  hLine.setAttribute('x2', sx(Q1));
+  vLine.setAttribute('x1', sx(Q1)); vLine.setAttribute('x2', sx(Q1));
+  vLine.setAttribute('y2', sy(P1));
+
+  pLbl.setAttribute('y', sy(P1) + 4);
+  pLbl.textContent = atStart ? '' : '$' + P1.toFixed(1);
+  qLbl.setAttribute('x', sx(Q1));
+  qLbl.textContent = atStart ? '' : Q1.toFixed(0);
+
+  dot.setAttribute('cx', sx(Q1));
+  dot.setAttribute('cy', sy(P1));
+
+  // Stats
+  document.getElementById('price-tag').textContent = '$' + P1.toFixed(1);
+  document.getElementById('stat-orig').textContent = '$' + Math.round(TR0).toLocaleString();
+  document.getElementById('stat-new').textContent  = '$' + Math.round(TR1).toLocaleString();
+  document.getElementById('orig-label').textContent = 'Original TR (P = $' + P0.toFixed(1) + ')';
+  const deltaEl = document.getElementById('stat-delta');
+  if (atStart) {
+    deltaEl.textContent = '—'; deltaEl.className = 'stat-value';
+  } else if (delta > 0.5) {
+    deltaEl.textContent = '+$' + Math.round(delta).toLocaleString();
+    deltaEl.className = 'stat-value gain';
+  } else if (delta < -0.5) {
+    deltaEl.textContent = '−$' + Math.round(Math.abs(delta)).toLocaleString();
+    deltaEl.className = 'stat-value loss';
+  } else {
+    deltaEl.textContent = '≈ $0'; deltaEl.className = 'stat-value';
+  }
+
+  // Elasticity
+  const eStr = isFinite(eps) ? eps.toFixed(2) : '∞';
+  document.getElementById('elas-num').textContent = '|ε| = ' + eStr;
+  const pct = isFinite(eps) ? Math.min(98, Math.max(2, (eps / (1 + eps)) * 100)) : 98;
+  document.getElementById('meter-dot').style.left = pct + '%';
+
+  let interp = '';
+  if (!isFinite(eps) || eps > 50) {
+    interp = 'Perfectly elastic.';
+  } else if (Math.abs(eps - 1) < 0.04) {
+    interp = 'Unit elastic — TR is at its peak; price changes have no net effect on TR.';
+  } else if (eps > 1) {
+    interp = atStart
+      ? 'Elastic — a price cut raises TR; a price hike reduces it.'
+      : P1 > P0
+        ? 'Elastic — raising price reduced TR (the quantity loss dominates).'
+        : 'Elastic — cutting price raised TR (the quantity gain dominates).';
+  } else {
+    interp = atStart
+      ? 'Inelastic — a price hike raises TR; a price cut reduces it.'
+      : P1 > P0
+        ? 'Inelastic — raising price increased TR (buyers barely cut quantity).'
+        : 'Inelastic — cutting price reduced TR (the price drop dominates).';
+  }
+  document.getElementById('elas-interp').textContent = interp;
+}
+
+// ── Events
+const priceSlider = document.getElementById('price-slider');
+const baseSlider  = document.getElementById('base-slider');
+
+priceSlider.addEventListener('input', () => update(parseFloat(priceSlider.value)));
+
+baseSlider.addEventListener('input', () => {
+  P0 = parseFloat(baseSlider.value);
+  document.getElementById('base-tag').textContent = '$' + P0.toFixed(1);
+  positionP0Markers();
+  // Reset new-price slider to base
+  priceSlider.value = P0;
+  update(P0);
+});
+
+document.getElementById('reset-btn').addEventListener('click', () => {
+  priceSlider.value = P0;
+  update(P0);
+});
+
+// ── Init
+positionP0Markers();
+update(P0);
+</script>
+</body>
+</html>
